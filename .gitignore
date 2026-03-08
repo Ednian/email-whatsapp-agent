@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Credentials & Tokens
+credentials/
+!credentials/.gitkeep
+
+# Logs
+*.log
+agent.log
+npm-debug.log*
+
+# OS
+.DS_Store
+.vscode/
+.idea/
+
+# Build
+dist/
+build/

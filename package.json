@@ -1,0 +1,25 @@
+{
+  "name": "email-whatsapp-agent",
+  "version": "1.0.0",
+  "description": "Local agent that reads Gmail, summarizes with Claude, and sends via WhatsApp",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "auth-gmail": "node src/gmail-auth.js",
+    "install-cron": "node scripts/install-cron.js",
+    "remove-cron": "node scripts/remove-cron.js",
+    "test": "node src/index.js"
+  },
+  "keywords": ["gmail", "whatsapp", "claude", "twilio"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0",
+    "googleapis": "^139.0.0",
+    "google-auth-library": "^9.14.1",
+    "twilio": "^4.10.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {}
+}
