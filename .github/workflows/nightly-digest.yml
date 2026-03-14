@@ -1,0 +1,17 @@
+name: Nightly Email Digest
+
+on:
+  schedule:
+    # 22:00 Europe/Madrid time (UTC+1 or UTC+2 depending on DST)
+    # This is 21:00 UTC in winter, 20:00 UTC in summer
+    - cron: '0 20 * * *'
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger digest webhook
+        run: |
+          curl -X POST ${{ secrets.RENDER_DIGEST_URL }} \
+            -H "Content-Type: application/json" \
+            -d '{}'
