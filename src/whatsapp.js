@@ -1,4 +1,7 @@
 import twilio from 'twilio';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -20,11 +23,30 @@ export async function sendWhatsAppMessage(summary) {
     );
   }
 
+  return replyToWebhook(to, summary, from);
+}
+
+/**
+ * Reply to a WhatsApp message (webhook)
+ * @param {string} to - Recipient phone number (whatsapp:+1234567890)
+ * @param {string} message - Message text to send
+ * @param {string} from - Sender number (defaults to TWILIO_WHATSAPP_FROM)
+ * @returns {Promise<string>} Message SID
+ */
+export async function replyToWebhook(to, message, from = null) {
+  const fromNumber = from || process.env.TWILIO_WHATSAPP_FROM;
+
+  if (!fromNumber || !to) {
+    throw new Error(
+      'Missing TWILIO_WHATSAPP_FROM or recipient phone number'
+    );
+  }
+
   try {
     // If message is too long, split it
-    if (summary.length > 1500) {
+    if (message.length > 1500) {
       const messages = [];
-      let remaining = summary;
+      let remaining = message;
 
       while (remaining.length > 0) {
         const chunk = remaining.slice(0, 1500);
@@ -36,7 +58,7 @@ export async function sendWhatsAppMessage(summary) {
       const sids = [];
       for (const chunk of messages) {
         const msg = await twilioClient.messages.create({
-          from,
+          from: fromNumber,
           to,
           body: chunk,
         });
@@ -47,13 +69,13 @@ export async function sendWhatsAppMessage(summary) {
     }
 
     // Single message
-    const message = await twilioClient.messages.create({
-      from,
+    const msg = await twilioClient.messages.create({
+      from: fromNumber,
       to,
-      body: summary,
+      body: message,
     });
 
-    return message.sid;
+    return msg.sid;
   } catch (err) {
     throw new Error(`Failed to send WhatsApp message: ${err.message}`);
   }
