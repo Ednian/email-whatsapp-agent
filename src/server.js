@@ -1,5 +1,6 @@
 import express from 'express';
 import twilio from 'twilio';
+import { validateRequest } from 'twilio/lib/webhooks/webhooks.js';
 import dotenv from 'dotenv';
 import { runDigest } from './digest.js';
 import { handleUserMessage } from './agent.js';
@@ -49,7 +50,7 @@ function validateTwilioSignature(req, url) {
   }
 
   const twilioSignature = req.get('X-Twilio-Signature') || '';
-  const auth = twilio.auth.validateRequest(
+  const auth = validateRequest(
     process.env.TWILIO_AUTH_TOKEN,
     twilioSignature,
     url,
