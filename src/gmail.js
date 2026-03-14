@@ -10,10 +10,20 @@ const CREDENTIALS_PATH = path.resolve('credentials/gmail-credentials.json');
 const secretManagerClient = new SecretManagerServiceClient();
 
 /**
- * Load token from Secret Manager or file (fallback)
+ * Load token from environment, Secret Manager, or file
  */
 async function loadSavedToken() {
-  // Try Secret Manager first (Cloud Run environment)
+  // Try environment variable first (for Render/other platforms)
+  if (process.env.GMAIL_TOKEN_BASE64) {
+    try {
+      const tokenJson = Buffer.from(process.env.GMAIL_TOKEN_BASE64, 'base64').toString('utf8');
+      return JSON.parse(tokenJson);
+    } catch (err) {
+      console.warn('Failed to load token from env:', err.message);
+    }
+  }
+
+  // Try Secret Manager (Cloud Run environment)
   if (process.env.GMAIL_TOKEN_SECRET_NAME) {
     try {
       const secretName = process.env.GMAIL_TOKEN_SECRET_NAME;
