@@ -24,38 +24,35 @@ Documento de referencia con todos los servicios y credenciales configuradas.
 - **Console:** https://console.cloud.google.com
 
 ### Twilio
-- **Account SID:** AC49dc580c549207b520683d260672dd81
-- **WhatsApp From:** +14155238886 (número Twilio)
-- **WhatsApp To:** +34609865449 (tu número)
-- **Webhook URL:** https://email-whatsapp-agent-fsjs.onrender.com/webhook
 - **Console:** https://console.twilio.com
+- **WhatsApp Webhook URL:** https://email-whatsapp-agent-fsjs.onrender.com/webhook
+- **Nota:** Credenciales almacenadas en variables de entorno de Render
 
 ### Anthropic (Claude API)
-- **API Key:** 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
 - **Model:** claude-opus-4-6
 - **Dashboard:** https://console.anthropic.com
+- **Nota:** API Key almacenada en variables de entorno de Render
 
 ---
 
 ## 🔐 Variables de Entorno
 
 ### En Render (Environment Variables)
-```
-ANTHROPIC_API_KEY=sk-ant-api03-...
-TWILIO_ACCOUNT_SID=AC49dc580c549207b520683d260672dd81
-TWILIO_AUTH_TOKEN=450d3bada7c4053c822429ea7c3b68d0
-TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
-TWILIO_WHATSAPP_TO=whatsapp:+34609865449
-GMAIL_CLIENT_ID=948066028876-5j4e1dnoqujiqjcjf4t4jvf9ccl4ot93.apps.googleusercontent.com
-GMAIL_CLIENT_SECRET=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
-GMAIL_REDIRECT_URI=http://localhost:3000/auth/callback
-GMAIL_TOKEN_BASE64=[base64 encoded token]
-PORT=10000
-```
+- `ANTHROPIC_API_KEY` — Clave Claude API
+- `TWILIO_ACCOUNT_SID` — ID de cuenta Twilio
+- `TWILIO_AUTH_TOKEN` — Token de autenticación Twilio
+- `TWILIO_WHATSAPP_FROM` — Número WhatsApp de Twilio
+- `TWILIO_WHATSAPP_TO` — Tu número WhatsApp personal
+- `GMAIL_CLIENT_ID` — ID cliente OAuth Google
+- `GMAIL_CLIENT_SECRET` — Secret OAuth Google
+- `GMAIL_REDIRECT_URI` — URI de redirección OAuth
+- `GMAIL_TOKEN_BASE64` — Token de Gmail en base64
+- `PORT=10000` — Puerto del servidor
+
+⚠️ **IMPORTANTE:** Las credenciales están guardadas en Render. NO van en el repo.
 
 ### En GitHub (Secrets)
-- **RENDER_DIGEST_URL:** https://email-whatsapp-agent-fsjs.onrender.com/run-digest
-- Para GitHub Actions workflow (nightly digest)
+- **RENDER_DIGEST_URL:** Webhook URL de Render para GitHub Actions
 
 ---
 

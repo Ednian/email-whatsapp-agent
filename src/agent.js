@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import dotenv from 'dotenv';
 import { getGmailClient, searchEmails, trashEmails, getEmailCount } from './gmail.js';
+import { getUserContext, saveUserContext } from './redis-context.js';
 
 dotenv.config();
 
@@ -57,20 +58,26 @@ const tools = [
 /**
  * Execute a tool call
  */
-async function executeTool(toolName, toolInput, gmail) {
+async function executeTool(toolName, toolInput, gmail, userPhoneNumber, userContext) {
   console.log(`[agent] Executing tool: ${toolName}`, toolInput);
 
   switch (toolName) {
     case 'search_emails': {
       const emails = await searchEmails(gmail, toolInput.query);
+      const emailResults = emails.map(e => ({
+        messageId: e.messageId,
+        from: e.from,
+        subject: e.subject,
+        preview: e.body.slice(0, 100),
+      }));
+
+      // Save to context for later reference
+      userContext.lastEmails = emailResults;
+      userContext.lastEmailQuery = toolInput.query;
+
       return {
-        count: emails.length,
-        emails: emails.map(e => ({
-          messageId: e.messageId,
-          from: e.from,
-          subject: e.subject,
-          preview: e.body.slice(0, 100),
-        })),
+        count: emailResults.length,
+        emails: emailResults,
       };
     }
 
@@ -102,12 +109,22 @@ export async function handleUserMessage(userMessage, userPhoneNumber) {
   console.log(`[agent] Processing message from ${userPhoneNumber}: "${userMessage}"`);
 
   try {
+    // Load user context from Redis
+    const userContext = await getUserContext(userPhoneNumber);
+    console.log(`[agent] Loaded context: ${userContext.conversationHistory.length} messages in history`);
+
     // Initialize Gmail client
     const gmail = await getGmailClient(
       process.env.GMAIL_CLIENT_ID,
       process.env.GMAIL_CLIENT_SECRET,
       process.env.GMAIL_REDIRECT_URI
     );
+
+    // Build context hint for Claude
+    let contextHint = '';
+    if (userContext.lastEmails && userContext.lastEmails.length > 0) {
+      contextHint = `\n\nPrevious search results are available (from: "${userContext.lastEmailQuery}"). User might reference them.`;
+    }
 
     // System prompt
     const systemPrompt = `You are a direct and efficient email management assistant via WhatsApp. Your job is to DO what the user asks, not explain why you shouldn't.
@@ -126,10 +143,11 @@ IMPORTANT RULES:
 6. NEVER ask "are you sure?" - just do it
 7. Report: "✅ Deleted X emails" or "❌ Error: ..."
 
-You are efficient, not a lawyer. Execute queries, don't debate them.`;
+You are efficient, not a lawyer. Execute queries, don't debate them.${contextHint}`;
 
-    // Build message history with tool use loop
+    // Build message history from Redis + current message
     const messages = [
+      ...userContext.conversationHistory,
       {
         role: 'user',
         content: userMessage,
@@ -172,7 +190,7 @@ You are efficient, not a lawyer. Execute queries, don't debate them.`;
         for (const block of response.content) {
           if (block.type === 'tool_use') {
             try {
-              const result = await executeTool(block.name, block.input, gmail);
+              const result = await executeTool(block.name, block.input, gmail, userPhoneNumber, userContext);
               toolResults.push({
                 type: 'tool_result',
                 tool_use_id: block.id,
@@ -208,6 +226,24 @@ You are efficient, not a lawyer. Execute queries, don't debate them.`;
     if (!finalResponse) {
       finalResponse = '✅ Operation completed successfully.';
     }
+
+    // Save conversation to history
+    userContext.conversationHistory.push({
+      role: 'user',
+      content: userMessage,
+    });
+    userContext.conversationHistory.push({
+      role: 'assistant',
+      content: finalResponse,
+    });
+
+    // Keep only last 10 exchanges to avoid Redis key getting too large
+    if (userContext.conversationHistory.length > 20) {
+      userContext.conversationHistory = userContext.conversationHistory.slice(-20);
+    }
+
+    // Save context back to Redis
+    await saveUserContext(userPhoneNumber, userContext);
 
     console.log(`[agent] Final response: "${finalResponse}"`);
     return finalResponse;

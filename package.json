@@ -12,17 +12,23 @@
     "remove-cron": "node scripts/remove-cron.js",
     "test": "node src/index.js"
   },
-  "keywords": ["gmail", "whatsapp", "claude", "twilio", "cloud-run"],
+  "keywords": [
+    "gmail",
+    "whatsapp",
+    "claude",
+    "twilio",
+    "cloud-run"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
     "@google-cloud/secret-manager": "^5.3.0",
+    "dotenv": "^16.4.5",
     "express": "^4.18.2",
-    "googleapis": "^139.0.0",
     "google-auth-library": "^9.14.1",
-    "twilio": "^4.10.0",
-    "dotenv": "^16.4.5"
-  },
-  "devDependencies": {}
+    "googleapis": "^139.0.0",
+    "redis": "^5.11.0",
+    "twilio": "^4.10.0"
+  }
 }
