@@ -7,7 +7,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
 /**
- * Search for TV series using Gemini (with web search)
+ * Search for TV series using Gemini (without explicit web search tool)
  */
 export async function searchSeries(query) {
   if (!genAI) {
@@ -19,34 +19,26 @@ export async function searchSeries(query) {
 
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.0-flash',
-      tools: [
-        {
-          googleSearch: {},
-        },
-      ],
     });
 
-    const prompt = `Search for information about the TV series "${query}".
-    Provide:
-    - Series name
-    - Current status (airing, ended, cancelled)
-    - Latest/current season number and episode count
-    - Premiere date of latest/current season or next season
-    - Brief description
-    - Any upcoming season information
+    const prompt = `Tell me about the TV series "${query}".
+Include:
+- Current status (airing, ended, cancelled)
+- Latest season/episode information
+- When the last/next season aired or will air
+- Brief description
 
-    Focus on current and accurate information from news and reliable sources.`;
+Be concise and factual.`;
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
 
     console.log(`[series] Gemini response: ${responseText.substring(0, 200)}...`);
 
-    // Parse Gemini response into structured format
     return {
       name: query,
       info: responseText,
-      source: 'Gemini Search (Web)',
+      source: 'Gemini',
     };
   } catch (err) {
     console.error('[series] Error searching with Gemini:', err.message);
