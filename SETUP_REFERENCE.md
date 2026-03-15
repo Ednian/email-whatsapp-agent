@@ -1,58 +1,34 @@
 # 📋 Setup Reference - Email WhatsApp Agent
 
-Documento de referencia con todos los servicios y credenciales configuradas.
+Documento de referencia con endpoints y configuración pública.
 
-## 🔗 URLs y Accesos
-
-### GitHub
-- **Repo:** https://github.com/Ednian/email-whatsapp-agent
-- **Username:** Ednian
-- **Acceso:** Personal (token guardado en .env local)
+## 🔗 URLs de Acceso
 
 ### Render (Servidor en la nube)
 - **URL pública:** https://email-whatsapp-agent-fsjs.onrender.com
 - **Health check:** https://email-whatsapp-agent-fsjs.onrender.com/health
 - **Digest endpoint:** https://email-whatsapp-agent-fsjs.onrender.com/run-digest
 - **Webhook endpoint:** https://email-whatsapp-agent-fsjs.onrender.com/webhook
-- **Dashboard:** https://dashboard.render.com
-- **Status:** Live y activo
 
-### Google Cloud
-- **Proyecto:** email-whatsapp-agent-489620
-- **Gmail API:** Habilitada
-- **Secret Manager:** gmail-token-secret (contiene token de Gmail)
-- **Console:** https://console.cloud.google.com
-
-### Twilio
-- **Console:** https://console.twilio.com
-- **WhatsApp Webhook URL:** https://email-whatsapp-agent-fsjs.onrender.com/webhook
-- **Nota:** Credenciales almacenadas en variables de entorno de Render
-
-### Anthropic (Claude API)
-- **Model:** claude-opus-4-6
-- **Dashboard:** https://console.anthropic.com
-- **Nota:** API Key almacenada en variables de entorno de Render
-
----
-
-## 🔐 Variables de Entorno
+## 🔐 Configuración de Variables de Entorno
 
 ### En Render (Environment Variables)
-- `ANTHROPIC_API_KEY` — Clave Claude API
-- `TWILIO_ACCOUNT_SID` — ID de cuenta Twilio
-- `TWILIO_AUTH_TOKEN` — Token de autenticación Twilio
-- `TWILIO_WHATSAPP_FROM` — Número WhatsApp de Twilio
-- `TWILIO_WHATSAPP_TO` — Tu número WhatsApp personal
-- `GMAIL_CLIENT_ID` — ID cliente OAuth Google
-- `GMAIL_CLIENT_SECRET` — Secret OAuth Google
-- `GMAIL_REDIRECT_URI` — URI de redirección OAuth
-- `GMAIL_TOKEN_BASE64` — Token de Gmail en base64
-- `PORT=10000` — Puerto del servidor
+Todas las credenciales se almacenan en Render. **NO van en el repo.**
 
-⚠️ **IMPORTANTE:** Las credenciales están guardadas en Render. NO van en el repo.
+Variables requeridas:
+- `ANTHROPIC_API_KEY` — Claude API key
+- `TWILIO_ACCOUNT_SID` — Twilio account ID
+- `TWILIO_AUTH_TOKEN` — Twilio auth token
+- `TWILIO_WHATSAPP_FROM` — Twilio WhatsApp number
+- `TWILIO_WHATSAPP_TO` — Recipient WhatsApp number
+- `GMAIL_CLIENT_ID` — Google OAuth client ID
+- `GMAIL_CLIENT_SECRET` — Google OAuth secret
+- `GMAIL_REDIRECT_URI` — OAuth redirect URI
+- `GMAIL_TOKEN_BASE64` — Gmail token (base64 encoded)
+- `REDIS_URL` — Redis connection URL
+- `PORT` — Server port
 
-### En GitHub (Secrets)
-- **RENDER_DIGEST_URL:** Webhook URL de Render para GitHub Actions
+⚠️ **SECURITY:** All secrets are stored in Render, not in version control.
 
 ---
 
