@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import dotenv from 'dotenv';
 import { getGmailClient, getCalendarClient, searchEmails, trashEmails, getEmailCount } from './gmail.js';
 import { getUserContext, saveUserContext } from './redis-context.js';
-import { searchSeries, getSeriesDetails, getSeriesDetailsTMDB, getNextEpisode, addSeriesToCalendar } from './series.js';
+import { searchSeries, addSeriesToCalendar } from './series.js';
 
 dotenv.config();
 
@@ -58,30 +58,16 @@ const tools = [
   },
   {
     name: 'search_series',
-    description: 'Search for TV series by name. Returns top 5 results with premiere date, status, and genre.',
+    description: 'Search for TV series information including current status, seasons, and upcoming episodes. Uses real-time web search for accurate information.',
     input_schema: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
-          description: 'Series name or keyword to search (e.g., "Breaking Bad", "The Office")',
+          description: 'Series name to search (e.g., "Breaking Bad", "Bridgerton", "From")',
         },
       },
       required: ['query'],
-    },
-  },
-  {
-    name: 'get_series_info',
-    description: 'Get detailed info about a series including next episode date.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        series_id: {
-          type: 'integer',
-          description: 'TVMaze series ID (from search_series results)',
-        },
-      },
-      required: ['series_id'],
     },
   },
   {
@@ -146,45 +132,14 @@ async function executeTool(toolName, toolInput, gmail, calendar, userPhoneNumber
     }
 
     case 'search_series': {
-      const results = await searchSeries(toolInput.query);
-      userContext.lastSeries = results;
+      const result = await searchSeries(toolInput.query);
+      userContext.lastSeries = result;
       userContext.lastSeriesQuery = toolInput.query;
 
       return {
-        count: results.length,
-        series: results.map(s => ({
-          id: s.id,
-          name: s.name,
-          premiered: s.premiered,
-          status: s.status,
-          genres: s.genres,
-          summary: s.summary,
-          rating: s.rating,
-          source: s.source,
-        })),
-      };
-    }
-
-    case 'get_series_info': {
-      // Try TMDB first for better season/episode info
-      let details = await getSeriesDetailsTMDB(toolInput.series_id);
-
-      // Fallback to TVMaze if TMDB fails
-      if (!details) {
-        details = await getSeriesDetails(toolInput.series_id);
-      }
-
-      const nextEp = await getNextEpisode(toolInput.series_id);
-
-      userContext.lastSeriesInfo = {
-        id: toolInput.series_id,
-        ...details,
-        nextEpisode: nextEp,
-      };
-
-      return {
-        ...details,
-        nextEpisode: nextEp,
+        name: result.name,
+        source: result.source,
+        information: result.info,
       };
     }
 
@@ -239,16 +194,15 @@ The user can ask you to:
 - Search for emails (by sender, subject, date range, etc.)
 - Delete/trash emails (marketing emails, spam, unread, etc.)
 - Get email statistics
-- Search for TV series information (searches both TMDB and TVMaze)
-- Get series premiere/next episode dates
+- Search for TV series information (uses real-time web search via Gemini)
 - Add series to calendar
 
 IMPORTANT RULES:
 1. When user asks to delete emails → EXECUTE using trash_emails tool
 2. When user asks to search series → EXECUTE using search_series tool
-   - Results come from TMDB (usually more current) and TVMaze
-   - Choose the most relevant result, prioritize accurate/current data
-   - If multiple sources found the same series, use the one with better info
+   - Uses real-time web search (Gemini) for accurate, current information
+   - Reports latest season info, premiere dates, airing status
+   - Present info clearly with key details (season, episodes, premiere date)
 3. When user references "add to calendar" → use add_to_calendar tool with series name and date
 4. Be concise - reply in 1-2 sentences max
 5. Match user's language and tone
