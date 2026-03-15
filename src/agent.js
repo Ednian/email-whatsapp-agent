@@ -6,6 +6,8 @@ import { searchSeries, getSeriesDetails, getNextEpisode, addSeriesToCalendar } f
 
 dotenv.config();
 
+console.log('[agent] ANTHROPIC_API_KEY:', process.env.ANTHROPIC_API_KEY ? 'SET' : 'MISSING');
+
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
