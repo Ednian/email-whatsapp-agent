@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import dotenv from 'dotenv';
 import { getGmailClient, getCalendarClient, searchEmails, trashEmails, getEmailCount } from './gmail.js';
 import { getUserContext, saveUserContext } from './redis-context.js';
-import { searchSeries, getSeriesDetails, getNextEpisode, addSeriesToCalendar } from './series.js';
+import { searchSeries, getSeriesDetails, getSeriesDetailsTMDB, getNextEpisode, addSeriesToCalendar } from './series.js';
 
 dotenv.config();
 
@@ -166,7 +166,14 @@ async function executeTool(toolName, toolInput, gmail, calendar, userPhoneNumber
     }
 
     case 'get_series_info': {
-      const details = await getSeriesDetails(toolInput.series_id);
+      // Try TMDB first for better season/episode info
+      let details = await getSeriesDetailsTMDB(toolInput.series_id);
+
+      // Fallback to TVMaze if TMDB fails
+      if (!details) {
+        details = await getSeriesDetails(toolInput.series_id);
+      }
+
       const nextEp = await getNextEpisode(toolInput.series_id);
 
       userContext.lastSeriesInfo = {

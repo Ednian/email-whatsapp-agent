@@ -119,7 +119,7 @@ export async function searchSeries(query) {
 }
 
 /**
- * Get detailed info about a series by ID
+ * Get detailed info about a series by ID from TVMaze
  */
 export async function getSeriesDetails(seriesId) {
   try {
@@ -140,6 +140,49 @@ export async function getSeriesDetails(seriesId) {
   } catch (err) {
     console.error('[series] Error getting series details:', err.message);
     throw new Error(`Failed to get series details: ${err.message}`);
+  }
+}
+
+/**
+ * Get detailed info about a series from TMDB (including seasons)
+ */
+export async function getSeriesDetailsTMDB(seriesId) {
+  if (!TMDB_API_KEY) {
+    return null;
+  }
+
+  try {
+    console.log(`[series] Fetching TMDB details for series ID: ${seriesId}`);
+
+    const response = await axios.get(`${TMDB_BASE_URL}/tv/${seriesId}`, {
+      params: {
+        api_key: TMDB_API_KEY,
+        language: 'es',
+      },
+    });
+
+    const show = response.data;
+    const latestSeason = show.seasons ? show.seasons[show.seasons.length - 1] : null;
+
+    return {
+      id: show.id,
+      name: show.name,
+      premiered: show.first_air_date || 'N/A',
+      status: show.status || 'N/A',
+      genres: show.genres?.map(g => g.name).join(', ') || 'N/A',
+      summary: show.overview || 'No summary',
+      totalSeasons: show.number_of_seasons,
+      totalEpisodes: show.number_of_episodes,
+      latestSeason: latestSeason ? {
+        seasonNumber: latestSeason.season_number,
+        episodeCount: latestSeason.episode_count,
+        airDate: latestSeason.air_date || 'TBA',
+      } : null,
+      rating: show.vote_average,
+    };
+  } catch (err) {
+    console.error('[series] Error getting TMDB series details:', err.message);
+    return null;
   }
 }
 
