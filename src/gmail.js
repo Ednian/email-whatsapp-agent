@@ -5,7 +5,7 @@ import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.modify',
-  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/calendar.events',
 ];
 const TOKEN_PATH = path.resolve('credentials/gmail-token.json');
 const CREDENTIALS_PATH = path.resolve('credentials/gmail-credentials.json');
