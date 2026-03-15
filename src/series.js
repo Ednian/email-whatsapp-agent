@@ -1,11 +1,16 @@
 import axios from 'axios';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const TVMAZE_BASE_URL = 'https://api.tvmaze.com';
+const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
 
 /**
  * Search for TV series on TVMaze
  */
-export async function searchSeries(query) {
+async function searchSeriesTVMaze(query) {
   try {
     console.log(`[series] Searching TVMaze for: "${query}"`);
 
@@ -28,10 +33,87 @@ export async function searchSeries(query) {
         genres: show.genres.join(', ') || 'N/A',
         summary: show.summary ? show.summary.replace(/<[^>]*>/g, '').slice(0, 150) : 'No summary',
         image: show.image?.medium || null,
+        source: 'TVMaze',
       };
     });
   } catch (err) {
     console.error('[series] Error searching TVMaze:', err.message);
+    return [];
+  }
+}
+
+/**
+ * Search for TV series on TMDB
+ */
+async function searchSeriesTMDB(query) {
+  if (!TMDB_API_KEY) {
+    console.warn('[series] TMDB_API_KEY not set, skipping TMDB search');
+    return [];
+  }
+
+  try {
+    console.log(`[series] Searching TMDB for: "${query}"`);
+
+    const response = await axios.get(`${TMDB_BASE_URL}/search/tv`, {
+      params: {
+        api_key: TMDB_API_KEY,
+        query,
+        language: 'es',
+      },
+    });
+
+    if (!response.data.results || response.data.results.length === 0) {
+      return [];
+    }
+
+    // Return top 5 results with relevant info
+    return response.data.results.slice(0, 5).map(show => {
+      return {
+        id: show.id,
+        name: show.name,
+        premiered: show.first_air_date || 'N/A',
+        status: show.in_production ? 'Running' : 'Ended',
+        genres: show.genre_ids.join(', ') || 'N/A',
+        summary: show.overview ? show.overview.slice(0, 150) : 'No summary',
+        image: show.poster_path ? `https://image.tmdb.org/t/p/w200${show.poster_path}` : null,
+        rating: show.vote_average || 'N/A',
+        source: 'TMDB',
+      };
+    });
+  } catch (err) {
+    console.error('[series] Error searching TMDB:', err.message);
+    return [];
+  }
+}
+
+/**
+ * Search for TV series on multiple sources and return combined results
+ */
+export async function searchSeries(query) {
+  try {
+    console.log(`[series] Searching for: "${query}" (TVMaze + TMDB)`);
+
+    const [tvmazeResults, tmdbResults] = await Promise.all([
+      searchSeriesTVMaze(query),
+      searchSeriesTMDB(query),
+    ]);
+
+    // Combine results, prioritizing exact matches
+    const combined = [...tmdbResults, ...tvmazeResults];
+
+    // Deduplicate by name (fuzzy match)
+    const seen = new Set();
+    const unique = combined.filter(show => {
+      const key = show.name.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    console.log(`[series] Found ${unique.length} unique series (TMDB: ${tmdbResults.length}, TVMaze: ${tvmazeResults.length})`);
+    return unique.slice(0, 5);
+  } catch (err) {
+    console.error('[series] Error searching series:', err.message);
     throw new Error(`Failed to search series: ${err.message}`);
   }
 }

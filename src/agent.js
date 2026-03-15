@@ -159,6 +159,8 @@ async function executeTool(toolName, toolInput, gmail, calendar, userPhoneNumber
           status: s.status,
           genres: s.genres,
           summary: s.summary,
+          rating: s.rating,
+          source: s.source,
         })),
       };
     }
@@ -230,13 +232,16 @@ The user can ask you to:
 - Search for emails (by sender, subject, date range, etc.)
 - Delete/trash emails (marketing emails, spam, unread, etc.)
 - Get email statistics
-- Search for TV series information
+- Search for TV series information (searches both TMDB and TVMaze)
 - Get series premiere/next episode dates
 - Add series to calendar
 
 IMPORTANT RULES:
 1. When user asks to delete emails → EXECUTE using trash_emails tool
 2. When user asks to search series → EXECUTE using search_series tool
+   - Results come from TMDB (usually more current) and TVMaze
+   - Choose the most relevant result, prioritize accurate/current data
+   - If multiple sources found the same series, use the one with better info
 3. When user references "add to calendar" → use add_to_calendar tool with series name and date
 4. Be concise - reply in 1-2 sentences max
 5. Match user's language and tone
