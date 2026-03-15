@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import dotenv from 'dotenv';
-import { getGmailClient, searchEmails, trashEmails, getEmailCount } from './gmail.js';
+import { getGmailClient, getCalendarClient, searchEmails, trashEmails, getEmailCount } from './gmail.js';
 import { getUserContext, saveUserContext } from './redis-context.js';
+import { searchSeries, getSeriesDetails, getNextEpisode, addSeriesToCalendar } from './series.js';
 
 dotenv.config();
 
@@ -53,12 +54,58 @@ const tools = [
       required: ['query'],
     },
   },
+  {
+    name: 'search_series',
+    description: 'Search for TV series by name. Returns top 5 results with premiere date, status, and genre.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Series name or keyword to search (e.g., "Breaking Bad", "The Office")',
+        },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'get_series_info',
+    description: 'Get detailed info about a series including next episode date.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        series_id: {
+          type: 'integer',
+          description: 'TVMaze series ID (from search_series results)',
+        },
+      },
+      required: ['series_id'],
+    },
+  },
+  {
+    name: 'add_to_calendar',
+    description: 'Add a series premiere or episode to Google Calendar.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        series_name: {
+          type: 'string',
+          description: 'Name of the series',
+        },
+        date: {
+          type: 'string',
+          description: 'Date to add (YYYY-MM-DD format)',
+        },
+      },
+      required: ['series_name', 'date'],
+    },
+  },
 ];
 
 /**
  * Execute a tool call
  */
-async function executeTool(toolName, toolInput, gmail, userPhoneNumber, userContext) {
+async function executeTool(toolName, toolInput, gmail, calendar, userPhoneNumber, userContext) {
   console.log(`[agent] Executing tool: ${toolName}`, toolInput);
 
   switch (toolName) {
@@ -96,6 +143,45 @@ async function executeTool(toolName, toolInput, gmail, userPhoneNumber, userCont
       };
     }
 
+    case 'search_series': {
+      const results = await searchSeries(toolInput.query);
+      userContext.lastSeries = results;
+      userContext.lastSeriesQuery = toolInput.query;
+
+      return {
+        count: results.length,
+        series: results.map(s => ({
+          id: s.id,
+          name: s.name,
+          premiered: s.premiered,
+          status: s.status,
+          genres: s.genres,
+          summary: s.summary,
+        })),
+      };
+    }
+
+    case 'get_series_info': {
+      const details = await getSeriesDetails(toolInput.series_id);
+      const nextEp = await getNextEpisode(toolInput.series_id);
+
+      userContext.lastSeriesInfo = {
+        id: toolInput.series_id,
+        ...details,
+        nextEpisode: nextEp,
+      };
+
+      return {
+        ...details,
+        nextEpisode: nextEp,
+      };
+    }
+
+    case 'add_to_calendar': {
+      const result = await addSeriesToCalendar(calendar, toolInput.series_name, toolInput.date);
+      return result;
+    }
+
     default:
       throw new Error(`Unknown tool: ${toolName}`);
   }
@@ -113,8 +199,14 @@ export async function handleUserMessage(userMessage, userPhoneNumber) {
     const userContext = await getUserContext(userPhoneNumber);
     console.log(`[agent] Loaded context: ${userContext.conversationHistory.length} messages in history`);
 
-    // Initialize Gmail client
+    // Initialize Gmail and Calendar clients
     const gmail = await getGmailClient(
+      process.env.GMAIL_CLIENT_ID,
+      process.env.GMAIL_CLIENT_SECRET,
+      process.env.GMAIL_REDIRECT_URI
+    );
+
+    const calendar = await getCalendarClient(
       process.env.GMAIL_CLIENT_ID,
       process.env.GMAIL_CLIENT_SECRET,
       process.env.GMAIL_REDIRECT_URI
@@ -123,25 +215,31 @@ export async function handleUserMessage(userMessage, userPhoneNumber) {
     // Build context hint for Claude
     let contextHint = '';
     if (userContext.lastEmails && userContext.lastEmails.length > 0) {
-      contextHint = `\n\nPrevious search results are available (from: "${userContext.lastEmailQuery}"). User might reference them.`;
+      contextHint += `\n\nPrevious email search results are available (from: "${userContext.lastEmailQuery}"). User might reference them.`;
+    }
+    if (userContext.lastSeries && userContext.lastSeries.length > 0) {
+      contextHint += `\n\nPrevious series search results are available (from: "${userContext.lastSeriesQuery}"). User might reference them.`;
     }
 
     // System prompt
-    const systemPrompt = `You are a direct and efficient email management assistant via WhatsApp. Your job is to DO what the user asks, not explain why you shouldn't.
+    const systemPrompt = `You are a direct and efficient personal assistant via WhatsApp. Your job is to DO what the user asks, not explain why you shouldn't.
 
 The user can ask you to:
 - Search for emails (by sender, subject, date range, etc.)
 - Delete/trash emails (marketing emails, spam, unread, etc.)
 - Get email statistics
+- Search for TV series information
+- Get series premiere/next episode dates
+- Add series to calendar
 
 IMPORTANT RULES:
-1. When user asks to delete emails → EXECUTE the action immediately using trash_emails tool
-2. Use search_emails with smart queries (is:unread, from:sender, newer_than:1d, etc.)
-3. If search returns multiple emails → trash them ALL (use the message IDs)
+1. When user asks to delete emails → EXECUTE using trash_emails tool
+2. When user asks to search series → EXECUTE using search_series tool
+3. When user references "add to calendar" → use add_to_calendar tool with series name and date
 4. Be concise - reply in 1-2 sentences max
 5. Match user's language and tone
 6. NEVER ask "are you sure?" - just do it
-7. Report: "✅ Deleted X emails" or "❌ Error: ..."
+7. Report success with emoji: "✅ Done" or "❌ Error: ..."
 
 You are efficient, not a lawyer. Execute queries, don't debate them.${contextHint}`;
 
@@ -190,7 +288,7 @@ You are efficient, not a lawyer. Execute queries, don't debate them.${contextHin
         for (const block of response.content) {
           if (block.type === 'tool_use') {
             try {
-              const result = await executeTool(block.name, block.input, gmail, userPhoneNumber, userContext);
+              const result = await executeTool(block.name, block.input, gmail, calendar, userPhoneNumber, userContext);
               toolResults.push({
                 type: 'tool_result',
                 tool_use_id: block.id,

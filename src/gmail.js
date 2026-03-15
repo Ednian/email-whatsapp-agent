@@ -3,7 +3,10 @@ import fs from 'fs';
 import path from 'path';
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 
-const SCOPES = ['https://www.googleapis.com/auth/gmail.modify'];
+const SCOPES = [
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/calendar',
+];
 const TOKEN_PATH = path.resolve('credentials/gmail-token.json');
 const CREDENTIALS_PATH = path.resolve('credentials/gmail-credentials.json');
 
@@ -308,4 +311,20 @@ export async function trashEmails(gmail, messageIds) {
     }
   }
   return successCount;
+}
+
+/**
+ * Get authenticated Google Calendar client (reuses Gmail auth)
+ */
+export async function getCalendarClient(clientId, clientSecret, redirectUri) {
+  const auth = createAuthClient(clientId, clientSecret, redirectUri);
+
+  // Try to load saved token
+  const savedToken = await loadSavedToken();
+  if (savedToken) {
+    auth.setCredentials(savedToken);
+    return google.calendar({ version: 'v3', auth });
+  }
+
+  throw new Error('No saved token found. Run gmail-auth.js first to authorize.');
 }
